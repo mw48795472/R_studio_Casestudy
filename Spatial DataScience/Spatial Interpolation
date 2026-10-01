@@ -96,3 +96,134 @@ ggplot() +
     high = "steelblue"
   ) +
   theme_gray()
+
+
+
+
+
+# 표본베리어그램
+stopifnot(
+  inherits(N02.sf, "sf"),
+  "NO2" %in% names(N02.sf),
+  is.numeric(N02.sf[["NO2"]]),
+  all(is.finite(N02.sf[["NO2"]])))
+N02.sf <- st_transform(N02.sf, crs = 32632)
+
+
+v <- gstat::variogram(NO2 ~ 1, locations = N02.sf)
+
+print(
+  plot(v,plot.numbers = TRUE,pch = 1,
+       xlab = "distance h [m]",
+       ylab = expression(gamma(h))))
+
+v0 <- gstat::variogram(
+  NO2 ~ 1,
+  locations = N02.sf,
+  cutoff = 100000,
+  width = 10000)
+
+print(
+  plot(
+    v0,
+    plot.numbers = TRUE,pch = 1,
+    xlab = "distance h [m]",
+    ylab = expression(gamma(h))))
+
+
+# 지수형 베리어그램
+v.m <- gstat::fit.variogram(
+  object = v,
+  model = gstat::vgm(
+    psill = 1,
+    model = "Exp",
+    range = 50000,
+    nugget = 1))
+
+print(v.m)
+
+print(
+  plot(
+    v, model = v.m, plot.numbers = TRUE,pch = 1,
+    xlab = "distance h [m]",
+    ylab = expression(gamma(h))))
+
+if (isTRUE(attr(v.m, "singular"))) {
+  stop("베리오그램 모형 singular 상태")}
+
+
+
+# 크리깅 
+if (exists("De", inherits = FALSE) && inherits(De, "sf")) {
+  De_map <- De
+} else if (exists("de", inherits = FALSE) && inherits(de, "sf")) {
+  De_map <- de
+} else {
+  stop("독일 행정경계 sf 객체인 De가 없다.")
+}
+
+
+
+De_map <- st_transform(
+  De_map,crs = st_crs(N02.sf))
+
+
+grid_10km <- st_bbox(De_map) |>
+  stars::st_as_stars(dx = 10000, dy = 10000) |>
+  sf::st_crop(De_map)
+
+stopifnot(inherits(grid_10km, "stars"))
+
+k <- gstat::krige(
+  formula = NO2 ~ 1,
+  locations = N02.sf,
+  newdata = grid_10km,
+  model = v.m
+)
+
+names(k)
+
+
+
+# 크리깅 지도
+p_kriging <- ggplot() +
+  geom_stars(
+    data = k["var1.pred"],
+    aes(fill = var1.pred)
+  ) +
+  
+  # 독일 행정경계
+  geom_sf(
+    data = De_map,
+    fill = NA,
+    color = "grey30",
+    linewidth = 0.4
+  ) +
+  
+  # 실제 관측소
+  geom_sf(
+    data = N02.sf,
+    color = "black",
+    size = 0.8
+  ) +
+  
+  # 농도 색상
+  scale_fill_gradient(
+    name = "NO2",
+    low = "#4F789A",
+    high = "#D6EAF7",
+    na.value = NA
+  ) +
+  
+  coord_sf(
+    crs = st_crs(de_map)
+  ) +
+  
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+  
+  theme_gray()
+
+print(p_kriging)
