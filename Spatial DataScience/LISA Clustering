@@ -1,1 +1,440 @@
+# 기본 페키지 세팅
+
+install.packages("dplyr")
+install.packages("caret")
+install.packages("ggplot2")
+install.packages("readxl")
+install.packages("rgdal")
+install.packages("stats")
+install.packages("factoextra")
+install.packages("cluster")
+install.packages("tmap")
+install.packages("sf")
+install.packages("spdep")
+
+library("dplyr")
+library("caret")
+library("ggplot2")
+library("readxl")
+library("stats")
+library("cluster")
+library("psych")
+library("MASS")
+library("tmap")
+library("sf")
+library("spdep")
+library("factoextra")
+
+find("select")
+
+
+
+
+
+##  K-means Clustring ## 
+
+
+# k-means : 경기도 관광지
+Tour_GG <- read_excel("C:/Users/mw595/OneDrive/문서/R_studio_Casestudy/LISA Clustering/경기도 관광지점 목록.xlsx")
+head(Tour_GG)
+
+XY_Axis_Tour_GG <- Tour_GG %>%
+  dplyr::select(X_CORDS, Y_CORDS)
+
+XY_Axis_Tour_GG <- XY_Axis_Tour_GG %>% filter(!is.na(X_CORDS),!is.na(Y_CORDS))
+
+summary(XY_Axis_Tour_GG)
+
+XY_Axis_Tour_GG.scale <- scale(XY_Axis_Tour_GG)
+
+fviz_nbclust(XY_Axis_Tour_GG,kmeans,method="silhouette")
+
+set.seed(123456)
+k7<- kmeans(XY_Axis_Tour_GG.scale, centers = 7,nstart = 100)
+
+XY_Axis_Tour_GG2 <- XY_Axis_Tour_GG %>%
+  filter(!is.na(X_CORDS),
+         !is.na(Y_CORDS))
+
+XY_Axis_Tour_GG2$Cluster <- factor(k7$cluster)
+
+head(XY_Axis_Tour_GG2)
+
+ggplot(XY_Axis_Tour_GG2, aes(x = X_CORDS, y = Y_CORDS, color = Cluster)) +
+  geom_point(size = 1) +
+  coord_cartesian(
+    xlim = c(126.0, max(XY_Axis_Tour_GG2$X_CORDS, na.rm = TRUE)),
+    ylim = c(min(XY_Axis_Tour_GG2$Y_CORDS, na.rm = TRUE), 37.8)
+  ) +
+  theme_minimal()
+
+k7$centers
+
+fviz_cluster(k7, data= XY_Axis_Tour_GG.scale)
+
+
+
+
+
+
+# k-means:숙박_ 경기도 전체
+
+hotel <- read_excel("C:/Users/mw595/OneDrive/문서/R_studio_Casestudy/LISA Clustering/경기관광공사_경기도MICEAlliance호텔및리조트.xlsx")
+
+head(hotel)
+
+XY_Axis_hotel <- hotel %>%
+  dplyr::select(경도, 위도)
+
+XY_Axis_hotel <- XY_Axis_hotel %>% filter(!is.na(위도),!is.na(경도))
+
+summary(XY_Axis_hotel)
+
+XY_Axis_hotel.scale <- scale(XY_Axis_hotel)
+
+fviz_nbclust(XY_Axis_hotel,kmeans,method="silhouette")
+
+set.seed(12345678)
+k9_hotel <- kmeans(XY_Axis_hotel.scale, centers = 9,nstart = 900)
+
+hotel2 <- hotel %>%
+  filter(!is.na(위도), !is.na(경도))
+
+
+hotel2$Cluster <- factor(k9_hotel$cluster)
+
+head(hotel2)
+
+ggplot(hotel2, aes(x = 경도, y = 위도, color = Cluster)) +
+  geom_point(size = 1) +
+  coord_cartesian(
+    xlim = c(126.0, max(hotel2$경도, na.rm = TRUE)),
+    ylim = c(min(hotel2$위도, na.rm = TRUE), 37.8)
+  ) +
+  theme_minimal()
+
+k9_hotel$centers
+
+fviz_cluster(k9_hotel, data= XY_Axis_hotel.scale)
+
+
+
+
+
+
+
+# k-means: 문화예술기획업 
+
+Entertainment <- read_excel("C:/Users/mw595/OneDrive/문서/R_studio_Casestudy/LISA Clustering/대중문화예술기획업_인허가_WGS84변환_경도위도결측제거.xlsx")
+
+head(Entertainment)
+
+XY_Axis_Entertainment <- Entertainment %>%
+  dplyr::select(경도, 위도)
+
+XY_Axis_Entertainment <- XY_Axis_Entertainment %>% filter(!is.na(위도),!is.na(경도))
+
+summary(XY_Axis_Entertainment)
+
+XY_Axis_Entertainment.scale <- scale(XY_Axis_Entertainment)
+
+fviz_nbclust(XY_Axis_Entertainment,kmeans,method="silhouette")
+
+set.seed(123)
+k3_Entertainment <- kmeans(XY_Axis_Entertainment.scale, centers = 3,nstart = 900)
+
+Entertainment2 <- Entertainment %>%
+  filter(!is.na(위도),
+         !is.na(경도))
+
+
+Entertainment2$Cluster <- factor(k3_Entertainment$cluster)
+
+head(Entertainment2)
+
+
+ggplot(Entertainment2, aes(x = 경도, y = 위도, color = factor(Cluster))) +
+  geom_point(size = 1) +
+  scale_color_manual(
+    values = c(
+      "3" = "#FFD700",  
+      "2" = "#1F78B4",  
+      "1" = "#E31A1C"   
+    ),
+    name = "Cluster"
+  ) +
+  coord_cartesian(
+    xlim = c(126.6,127.6),
+    ylim = c(min(Entertainment2$위도, na.rm = TRUE), 38.1)
+  ) +
+  theme_minimal()
+
+
+
+k3_Entertainment$centers
+
+fviz_cluster(k3_Entertainment, data= XY_Axis_Entertainment.scale)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## LISA 클러스터링 ##
+
+
+
+# LISA :  문화예술기획업 
+
+Entertainment3 <- Entertainment %>%
+  filter(!is.na(경도), !is.na(위도))
+
+Entertainment_sf <- st_as_sf(
+  Entertainment3,
+  coords = c("경도", "위도"),
+  crs = 4326)
+
+Entertainment_sf <- st_transform(Entertainment_sf,5179)
+st_crs(Entertainment_sf)
+
+grid <- st_make_grid(Entertainment_sf, cellsize=3000, square= TRUE)
+
+grid_sf <-st_sf(id =1:length(grid),geometry=grid)
+
+plot(grid_sf)
+
+
+grid_sf$count <- lengths(st_intersects(grid_sf,Entertainment_sf))
+
+table(grid_sf$count)
+
+plot(grid_sf["count"])
+
+
+grid_sf$zscore <- as.numeric(scale(grid_sf$count))
+
+summary(grid_sf$zscore)
+
+XY_Axis_center_sf <- st_coordinates(st_centroid(grid_sf))
+
+
+knn <- knearneigh(XY_Axis_center_sf,k=3)
+
+nb <-knn2nb(knn)
+
+summary(nb)
+
+lw <- nb2listw(nb,style="W")
+
+grid_sf$lag <- lag.listw(lw,grid_sf$zscore)
+
+summary(grid_sf$lag)
+
+ggplot(grid_sf,aes(x=zscore,y=lag))+geom_point(size=1)+geom_hline(yintercept=-0,lintype=2)+geom_vline(xintercept=0,linetype=2)+theme_bw()
+
+moran.test( grid_sf$count, lw)
+
+local <- localmoran(grid_sf$count,lw)
+
+grid_sf$Ii <- local [,1]
+grid_sf$EI <- local [,2]
+grid_sf$VI <- local [,3]
+grid_sf$ZI <- local [,4]
+grid_sf$PI <- local [,5]
+
+head(grid_sf)
+
+
+
+grid_sf$LISA <- "Not Significant"
+
+grid_sf$LISA[
+  grid_sf$zscore > 0 &
+    grid_sf$lag > 0 &
+    grid_sf$PI < 0.05
+] <- "High-High"
+
+grid_sf$LISA[
+  grid_sf$zscore < 0 &
+    grid_sf$lag < 0 &
+    grid_sf$PI < 0.05
+] <- "Low-Low"
+
+grid_sf$LISA[
+  grid_sf$zscore > 0 &
+    grid_sf$lag < 0 &
+    grid_sf$PI < 0.05
+] <- "High-Low"
+
+grid_sf$LISA[
+  grid_sf$zscore < 0 &
+    grid_sf$lag > 0 &
+    grid_sf$PI < 0.05
+] <- "Low-High"
+
+
+
+
+
+
+
+
+grid_table <-
+  grid_sf %>%
+  st_drop_geometry() %>%
+  select(
+    id,
+    count,
+    zscore,
+    lag,
+    Ii,
+    ZI,
+    PI,
+    LISA
+  )
+
+head(grid_table)
+
+## LISA를 factor로 변환하여 범례 순서 고정
+grid_sf$LISA <- factor(
+  grid_sf$LISA,
+  levels = c(
+    "High-High",
+    "Low-Low",
+    "High-Low",
+    "Low-High",
+    "Not Significant"
+      ))
+
+
+
+
+
+
+## LISA Cluster Map ##
+
+
+tm_shape(grid_sf) +
+  tm_fill(
+    col = "LISA",
+    palette = c(
+      "High-High"       = "navy",      # HH : 남색
+      "Low-Low"         = "yellow",    # LL : 노란색
+      "High-Low"        = "orange",    # HL : 주황색
+      "Low-High"        = "red",       # LH : 빨간색
+      "Not Significant" = "gr"    # 유의하지 않음
+      ),
+    drop.levels = FALSE,               # 데이터에 없어도 범례에 표시
+    title = "LISA"
+  ) +
+  tm_borders(col = "grey30", lwd = 0.5) +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.title.size = 1.2,
+    legend.text.size = 0.9,
+    frame = TRUE  )
+
+
+tm_shape(grid_sf) +
+  tm_fill(
+    col = "LISA",
+    palette = c(
+      "High-High" = "#08306B",      # HH → 남색
+      "Low-Low" = "yellow",      # LL → 노란색
+      "High-Low" = "#E31A1C",     # HL → 주황색
+      "Low-High" = "#40E0D0",        # LH → 빨간색
+      "Not Significant" = "#74C476" # 유의하지 않음
+    )
+  ) +
+  tm_borders()
+
+
+
+# Cluster Plot 디자인 
+
+ggplot(grid_sf,
+       aes(x = zscore,
+           y = lag,
+           color = grid_sf$LISA)) +
+  
+  geom_point(size = 1.0, alpha = 0.7) +
+  
+  ## 기준선
+  geom_vline(xintercept = 0,
+             linetype = "dashed",
+             colour = "grey40") +
+  
+  geom_hline(yintercept = 0,
+             linetype = "dashed",
+             colour = "grey40") +
+  
+  ## Moran 회귀선
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              se = FALSE,
+              colour = "black",
+              linewidth = 1) +
+  
+  ## 색상
+  scale_color_manual(values = c(
+    "High-High" = "#08306B",      
+    "Low-Low" = "#FFD700",        
+    "High-Low" = "#E31A1C",      
+    "Low-High" = "#40E0D0",      
+    "Not Significant" = "#BDBDBD" ))
+  
+  
+  
+  
+  
+  ## 사분면 이름
+  annotate("text",
+           x = max(grid_sf$zscore)*0.45,
+           y = max(grid_sf$lag)*0.15,
+           label = "HH",
+           size = 5) +
+  
+  annotate("text",
+           x = min(grid_sf$zscore)*0.7,
+           y = max(grid_sf$lag)*0.2,
+           label = "LH",
+           size = 5) +
+  
+  annotate("text",
+           x = min(grid_sf$zscore)*0.6,
+           y = min(grid_sf$lag)*0.5,
+           label = "LL",
+           size = 5) +
+  
+  annotate("text",
+           x = max(grid_sf$zscore)*0.5,
+           y = min(grid_sf$lag)*0.5,
+           label = "HL",
+           size = 5) +
+  
+  labs(
+    title = "Moran Local Scatterplot",
+    x = "Standardized Count",
+    y = "Spatial Lag"
+  ) +
+  
+  theme_bw(base_size = 14) +
+  
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+  unique(grid_sf$LISA)
+  table(grid_sf$LISA)
 
